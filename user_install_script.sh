@@ -3,6 +3,8 @@ set -euo pipefail
 
 # Hardcoded mirror host for GitHub/API/RAW substitutions
 DECKY_MIRROR_HOST="__DECKY_MIRROR_HOST__"
+DECKY_PLUGIN_MIRROR_HOST="__DECKY_PLUGIN_MIRROR_HOST__"
+DECKY_PLUGIN_TARGET_ID="__DECKY_PLUGIN_ID__"
 
 # Download the official installer script, rewrite domains to the mirror, then execute.
 # This keeps the original installer logic intact while swapping network endpoints.
@@ -19,3 +21,14 @@ if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/SteamDeckHomebrew/decky-installer/
 fi
 
 bash "${tmp_script}"
+
+# Download and run decky plugin installer helper (mirror-hosted).
+plugin_installer="/tmp/decky_plugin_installer.py"
+if curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_plugin_installer.py" -o "${plugin_installer}"; then
+  python3 "${plugin_installer}" \
+    --store-url "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins" \
+    --target-id "${DECKY_PLUGIN_TARGET_ID}"
+else
+  echo "Failed to download decky installer helper script." >&2
+  exit 1
+fi
