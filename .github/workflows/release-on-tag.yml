@@ -32,5 +32,5 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: |
             user_install_script.sh
-            decky_plugin_installer.py
+            decky_client.py
             decky_installer.desktop

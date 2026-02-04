@@ -23,17 +23,17 @@ The installer now supports configuring custom plugin store URLs:
 
 #### Configure a Custom Store URL
 ```bash
-python3 decky_plugin_installer.py --configure-store "https://your-custom-store.com/plugins"
+python3 decky_client.py --configure-store "https://your-custom-store.com/plugins"
 ```
 
 #### Get the Currently Configured Store URL
 ```bash
-python3 decky_plugin_installer.py --get-store
+python3 decky_client.py --get-store
 ```
 
 #### Install from a Custom Store
 ```bash
-python3 decky_plugin_installer.py --target-id 42 --store-url "https://your-custom-store.com/plugins"
+python3 decky_client.py --target-id 42 --store-url "https://your-custom-store.com/plugins"
 ```
 
 ## Mock Server for Testing
@@ -47,7 +47,7 @@ python3 mock_decky_server.py --auto-confirm
 
 ### Test with the Mock Server
 ```bash
-python3 decky_plugin_installer.py --target-id 42
+python3 decky_client.py --target-id 42
 ```
 
 The mock server implements the following Decky Loader backend routes:

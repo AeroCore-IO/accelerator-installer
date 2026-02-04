@@ -35,8 +35,8 @@ if [ "$SKIP_DECKY_INSTALL" != true ]; then
 fi
 
 # Download and run decky plugin installer helper (mirror-hosted).
-plugin_installer="/tmp/decky_plugin_installer.py"
-if curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_plugin_installer.py" -o "${plugin_installer}"; then
+plugin_installer="/tmp/decky_client.py"
+if curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_client.py" -o "${plugin_installer}"; then
   python3 "${plugin_installer}" \
     --store-url "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins" \
     --target-id "${DECKY_PLUGIN_TARGET_ID}"
