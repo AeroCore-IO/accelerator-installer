@@ -20,7 +20,7 @@ fi
 # This keeps the original installer logic intact while swapping network endpoints.
 tmp_script="/tmp/decky_user_install_script.sh"
 
-if [ "$SKIP_DECKY_INSTALL" = false ]; then
+if [ "$SKIP_DECKY_INSTALL" != true ]; then
   if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/SteamDeckHomebrew/decky-installer/releases/latest/download/user_install_script.sh" \
     | sed -E \
         -e "s#github\.com#${DECKY_MIRROR_HOST}#g" \
