@@ -229,9 +229,91 @@ async def run_installer(target_id: int, store_url: str) -> None:
         raise RuntimeError("Installation did not complete successfully")
 
 
+async def configure_store_url(store_url: str) -> None:
+    """Configure custom store URL in Decky settings."""
+    client = DeckyClient()
+    try:
+        log(f"Connecting to Decky server at {client.host}:{client.port}...")
+        token = await client.get_token()
+        await client.connect(token)
+
+        log(f"Setting custom store URL: {store_url}")
+        await client.send(CALL, "utilities/settings/set", ["store_url", store_url])
+        
+        # Wait for reply
+        msg = await client.recv()
+        if msg is None:
+            raise RuntimeError("Connection closed by server")
+        
+        m_type = msg.get("type")
+        
+        if m_type == REPLY:
+            log(f"Store URL configured successfully: {msg.get('result')}")
+        elif m_type == ERROR:
+            log(f"Server error: {msg.get('error')}")
+            raise RuntimeError(f"Failed to set store URL: {msg.get('error')}")
+        
+    except Exception as e:
+        log(f"Error: {e}")
+        raise
+    finally:
+        await client.close()
+
+
+async def get_store_url() -> str:
+    """Get the configured custom store URL from Decky settings."""
+    client = DeckyClient()
+    try:
+        log(f"Connecting to Decky server at {client.host}:{client.port}...")
+        token = await client.get_token()
+        await client.connect(token)
+
+        log("Getting configured store URL...")
+        await client.send(CALL, "utilities/settings/get", ["store_url", "https://plugins.deckbrew.xyz/plugins"])
+        
+        # Wait for reply
+        msg = await client.recv()
+        if msg is None:
+            raise RuntimeError("Connection closed by server")
+        
+        m_type = msg.get("type")
+        
+        if m_type == REPLY:
+            store_url = msg.get('result')
+            log(f"Current store URL: {store_url}")
+            return store_url
+        elif m_type == ERROR:
+            log(f"Server error: {msg.get('error')}")
+            raise RuntimeError(f"Failed to get store URL: {msg.get('error')}")
+        
+        raise RuntimeError("Unexpected response type")
+        
+    except Exception as e:
+        log(f"Error: {e}")
+        raise
+    finally:
+        await client.close()
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Decky Plugin Installer")
-    parser.add_argument("--store-url", default="http://127.0.0.1:1337/plugins")
-    parser.add_argument("--target-id", type=int, default=42)
+    parser.add_argument("--store-url", default="http://127.0.0.1:1337/plugins",
+                        help="Plugin store URL to fetch plugins from")
+    parser.add_argument("--target-id", type=int, default=42,
+                        help="Plugin ID to install")
+    parser.add_argument("--configure-store", metavar="URL",
+                        help="Configure custom store URL in Decky settings")
+    parser.add_argument("--get-store", action="store_true",
+                        help="Get the configured custom store URL")
     args = parser.parse_args()
-    asyncio.run(run_installer(**vars(args)))
+    
+    if args.configure_store:
+        # Configure store URL
+        asyncio.run(configure_store_url(args.configure_store))
+    elif args.get_store:
+        # Get configured store URL
+        asyncio.run(get_store_url())
+    else:
+        # Run installer
+        asyncio.run(run_installer(**{k: v for k, v in vars(args).items() 
+                                      if k in ['target_id', 'store_url']}))

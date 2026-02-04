@@ -42,6 +42,9 @@ CSRF_TOKEN = "decky-" + os.urandom(16).hex()
 # Plugin install requests storage (simulates PluginBrowser.install_requests)
 install_requests: Dict[str, Dict[str, str]] = {}
 
+# Settings storage (simulates SettingsManager)
+settings_store: Dict[str, Any] = {}
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -198,6 +201,8 @@ def handle_call_route(
         "utilities/install_plugin": handle_install_plugin,
         "utilities/confirm_plugin_install": handle_confirm_plugin_install,
         "utilities/cancel_plugin_install": handle_cancel_plugin_install,
+        "utilities/settings/get": handle_get_setting,
+        "utilities/settings/set": handle_set_setting,
     }
     
     if route not in routes:
@@ -407,6 +412,77 @@ def handle_cancel_plugin_install(
     
     install_requests.pop(request_id, None)
     return None
+
+
+def handle_get_setting(
+    sock: socket.socket,
+    args: List[Any],
+    config: Dict[str, bool]
+) -> Any:
+    """Handle utilities/settings/get route.
+    
+    Corresponds to:
+        - utilities.py async def get_setting() (line 272)
+        - settings.py def getSetting() (line 58)
+    
+    Function signature from utilities.py:
+        async def get_setting(self, key: str, default: Any)
+    
+    Args:
+        sock: The WebSocket socket (unused).
+        args: [key, default].
+        config: Server configuration (unused).
+        
+    Returns:
+        The setting value or the default if not found.
+    """
+    if len(args) < 1:
+        raise ValueError("get_setting requires key argument")
+    
+    key = args[0]
+    default = args[1] if len(args) > 1 else None
+    
+    value = settings_store.get(key, default)
+    logger.info("[get_setting] key=%s, default=%s, value=%s", key, default, value)
+    
+    return value
+
+
+def handle_set_setting(
+    sock: socket.socket,
+    args: List[Any],
+    config: Dict[str, bool]
+) -> Any:
+    """Handle utilities/settings/set route.
+    
+    Corresponds to:
+        - utilities.py async def set_setting() (line 275)
+        - settings.py def setSetting() (line 61)
+    
+    Function signature from utilities.py:
+        async def set_setting(self, key: str, value: Any)
+    
+    Args:
+        sock: The WebSocket socket (unused).
+        args: [key, value].
+        config: Server configuration (unused).
+        
+    Returns:
+        The value that was set.
+        
+    Raises:
+        ValueError: If key or value is missing.
+    """
+    if len(args) < 2:
+        raise ValueError("set_setting requires key and value arguments")
+    
+    key = args[0]
+    value = args[1]
+    
+    settings_store[key] = value
+    logger.info("[set_setting] key=%s, value=%s", key, value)
+    
+    return value
 
 
 def _do_install(sock: socket.socket, artifact: str, name: str, version: str, hash_val: str) -> None:
