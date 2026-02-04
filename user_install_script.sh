@@ -37,9 +37,13 @@ fi
 # Download and run Decky Loader client (mirror-hosted).
 decky_client="/tmp/decky_client.py"
 if curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_client.py" -o "${decky_client}"; then
+  # Install the plugin
   python3 "${decky_client}" install \
     --store-url "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins" \
     --target-id "${DECKY_PLUGIN_TARGET_ID}"
+  
+  # Configure the custom store URL for future use
+  python3 "${decky_client}" configure-store "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins"
 else
   echo "Failed to download Decky Loader client script." >&2
   exit 1
