@@ -25,6 +25,10 @@ jobs:
           sed -i "s|__DECKY_PLUGIN_ID__|${PLUGIN_ID}|g" user_install_script.sh
           sed -i "s|__DECKY_MIRROR_HOST__|$MIRROR_HOST|g" decky_installer.desktop
 
+      - name: Generate checksum for decky_client.py
+        run: |
+          sha256sum decky_client.py > decky_client.py.sha256
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -32,5 +36,6 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: |
             user_install_script.sh
-            decky_plugin_installer.py
+            decky_client.py
+            decky_client.py.sha256
             decky_installer.desktop

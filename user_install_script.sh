@@ -34,13 +34,36 @@ if [ "$SKIP_DECKY_INSTALL" != true ]; then
   bash "${tmp_script}"
 fi
 
-# Download and run decky plugin installer helper (mirror-hosted).
-plugin_installer="/tmp/decky_plugin_installer.py"
-if curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_plugin_installer.py" -o "${plugin_installer}"; then
-  python3 "${plugin_installer}" \
-    --store-url "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins" \
-    --target-id "${DECKY_PLUGIN_TARGET_ID}"
-else
-  echo "Failed to download decky installer helper script." >&2
+# Download and verify Decky Loader client (mirror-hosted).
+decky_client="/tmp/decky_client.py"
+decky_client_checksum="/tmp/decky_client.py.sha256"
+
+# Download the client script
+if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_client.py" -o "${decky_client}"; then
+  echo "Failed to download Decky Loader client script." >&2
   exit 1
 fi
+
+# Download the checksum file
+if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_client.py.sha256" -o "${decky_client_checksum}"; then
+  echo "Failed to download checksum file for Decky Loader client." >&2
+  exit 1
+fi
+
+# Verify the checksum
+if ! (cd /tmp && sha256sum -c decky_client.py.sha256); then
+  echo "Checksum verification failed for Decky Loader client. File may be compromised." >&2
+  rm -f "${decky_client}" "${decky_client_checksum}"
+  exit 1
+fi
+
+# Install the plugin
+python3 "${decky_client}" install \
+  --store-url "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins" \
+  --target-id "${DECKY_PLUGIN_TARGET_ID}"
+
+# Configure the custom store URL for future use
+python3 "${decky_client}" configure-store "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins"
+
+# Clean up
+rm -f "${decky_client}" "${decky_client_checksum}"
