@@ -299,26 +299,57 @@ async def get_store_url() -> str:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Decky Plugin Installer")
-    parser.add_argument("--store-url", default="http://127.0.0.1:1337/plugins",
-                        help="Plugin store URL to fetch plugins from")
-    parser.add_argument("--target-id", type=int, default=42,
-                        help="Plugin ID to install")
-    parser.add_argument("--configure-store", metavar="URL",
-                        help="Configure custom store URL in Decky settings")
-    parser.add_argument("--get-store", action="store_true",
-                        help="Get the configured custom store URL")
+    parser = argparse.ArgumentParser(
+        description="Decky Loader Client - Manage plugins and settings",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    
+    # Install subcommand
+    install_parser = subparsers.add_parser(
+        "install",
+        help="Install a plugin from the store"
+    )
+    install_parser.add_argument(
+        "--store-url",
+        default="http://127.0.0.1:1337/plugins",
+        help="Plugin store URL to fetch plugins from (default: http://127.0.0.1:1337/plugins)"
+    )
+    install_parser.add_argument(
+        "--target-id",
+        type=int,
+        default=42,
+        help="Plugin ID to install (default: 42)"
+    )
+    
+    # Configure store subcommand
+    config_parser = subparsers.add_parser(
+        "configure-store",
+        help="Configure custom store URL in Decky settings"
+    )
+    config_parser.add_argument(
+        "url",
+        help="Custom store URL to configure"
+    )
+    
+    # Get store subcommand
+    subparsers.add_parser(
+        "get-store",
+        help="Get the configured custom store URL"
+    )
+    
     args = parser.parse_args()
     
-    if args.configure_store:
-        # Configure store URL
-        asyncio.run(configure_store_url(args.configure_store))
-    elif args.get_store:
-        # Get configured store URL
-        asyncio.run(get_store_url())
-    else:
-        # Run installer - only pass expected parameters
+    # Execute based on subcommand
+    if args.command == "install":
         asyncio.run(run_installer(
             target_id=args.target_id,
             store_url=args.store_url
         ))
+    elif args.command == "configure-store":
+        asyncio.run(configure_store_url(args.url))
+    elif args.command == "get-store":
+        asyncio.run(get_store_url())
+    else:
+        parser.print_help()
+        sys.exit(1)
