@@ -189,6 +189,7 @@ async def run_installer(target_id: int, store_url: str) -> None:
     """Installation workflow."""
     client = DeckyClient()
     success = False
+    confirmed = False
     error: Optional[BaseException] = None
     try:
         log(f"Contacting Mock Server at {client.host}:{client.port}...")
@@ -223,6 +224,9 @@ async def run_installer(target_id: int, store_url: str) -> None:
             msg = await client.recv()
             if msg is None:
                 log("Connection closed by server.")
+                if confirmed:
+                    log("Install was confirmed; assuming success despite disconnect.")
+                    success = True
                 break
 
             m_type = msg.get("type")
@@ -236,6 +240,7 @@ async def run_installer(target_id: int, store_url: str) -> None:
                 log("Prompt received, sending confirmation...")
                 await client.send(CALL, "utilities/confirm_plugin_install",
                                   [request_id])
+                confirmed = True
 
             elif m_type == EVENT and msg.get("event") == "loader/plugin_download_finish":
                 log(f"Installation successful: {msg.get('args')}")
