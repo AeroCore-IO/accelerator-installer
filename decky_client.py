@@ -295,6 +295,21 @@ async def configure_store_url(store_url: str) -> None:
         token = await client.get_token()
         await client.connect(token)
 
+        # First, set the store type to 2 (custom)
+        log(f"Setting store type to custom (2)...")
+        await client.send(CALL, "utilities/settings/set", ["store", 2])
+        
+        msg = await client.recv()
+        if msg is None:
+            raise RuntimeError("Connection closed by server")
+        
+        if msg.get("type") == ERROR:
+            log(f"Server error setting store type: {msg.get('error')}")
+            raise RuntimeError(f"Failed to set store type: {msg.get('error')}")
+        
+        log(f"Store type set to custom")
+
+        # Then, set the custom store URL
         log(f"Setting custom store URL: {store_url}")
         await client.send(CALL, "utilities/settings/set", ["store_url", store_url])
 
@@ -319,17 +334,33 @@ async def configure_store_url(store_url: str) -> None:
 
 
 async def get_store_url() -> str:
-    """Get the configured custom store URL from Decky settings."""
+    """Get the configured custom store URL and type from Decky settings."""
     client = DeckyClient()
     try:
         log(f"Connecting to Decky server at {client.host}:{client.port}...")
         token = await client.get_token()
         await client.connect(token)
 
+        # Get store type
+        log("Getting configured store type...")
+        await client.send(CALL, "utilities/settings/get", ["store", 0])
+
+        msg = await client.recv()
+        if msg is None:
+            raise RuntimeError("Connection closed by server")
+
+        if msg.get("type") == REPLY:
+            store_type = msg.get('result')
+            store_type_name = {0: "default", 1: "testing", 2: "custom"}.get(store_type, f"unknown ({store_type})")
+            log(f"Current store type: {store_type_name}")
+        elif msg.get("type") == ERROR:
+            log(f"Server error: {msg.get('error')}")
+            raise RuntimeError(f"Failed to get store type: {msg.get('error')}")
+
+        # Get store URL
         log("Getting configured store URL...")
         await client.send(CALL, "utilities/settings/get", ["store_url", DEFAULT_STORE_URL])
 
-        # Wait for reply
         msg = await client.recv()
         if msg is None:
             raise RuntimeError("Connection closed by server")
