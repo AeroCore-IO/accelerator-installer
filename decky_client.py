@@ -17,6 +17,13 @@ EVENT = 3
 # Default store URL
 DEFAULT_STORE_URL = "https://plugins.deckbrew.xyz/plugins"
 
+# Store type mapping
+STORE_TYPE_NAMES = {
+    0: "default",
+    1: "testing",
+    2: "custom"
+}
+
 
 def log(*args: Any) -> None:
     """Print formatted logs to stderr."""
@@ -351,7 +358,7 @@ async def get_store_url() -> str:
 
         if msg.get("type") == REPLY:
             store_type = msg.get('result')
-            store_type_name = {0: "default", 1: "testing", 2: "custom"}.get(store_type, f"unknown ({store_type})")
+            store_type_name = STORE_TYPE_NAMES.get(store_type, f"unknown ({store_type})")
             log(f"Current store type: {store_type_name}")
         elif msg.get("type") == ERROR:
             log(f"Server error: {msg.get('error')}")
