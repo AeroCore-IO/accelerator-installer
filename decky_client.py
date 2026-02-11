@@ -217,12 +217,15 @@ async def run_installer(target_id: int, store_url: str) -> None:
             raise RuntimeError("latest version missing artifact URL")
 
         log(f"Installing {plugin_name} v{version_name}")
+        print("[" + " " * 20 + "] 0%", end="", file=sys.stderr, flush=True)
+        installation_finished = False
         await client.send(CALL, "utilities/install_plugin",
                           [artifact_url, plugin_name, version_name, hash_, 0])
 
         while True:
             msg = await client.recv()
             if msg is None:
+                print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
                 log("Connection closed by server.")
                 if confirmed:
                     log("Install was confirmed; treating disconnect as success.")
@@ -234,23 +237,42 @@ async def run_installer(target_id: int, store_url: str) -> None:
             if m_type == EVENT and msg.get("event") == "loader/add_plugin_install_prompt":
                 m_args = msg.get("args", [])
                 if len(m_args) < 3:
+                    print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
                     log(f"Invalid install prompt args: {m_args}")
                     continue
                 request_id = m_args[2]
+                print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
                 log("Prompt received, sending confirmation...")
                 await client.send(CALL, "utilities/confirm_plugin_install",
                                   [request_id])
                 confirmed = True
 
-            elif m_type == EVENT and msg.get("event") == "loader/plugin_download_finish":
-                log(f"Installation successful: {msg.get('args')}")
-                success = True
-                break
+            elif m_type == EVENT and msg.get("event") == "loader/plugin_download_info":
+                m_args = msg.get("args", [])
+                if len(m_args) >= 1:
+                    progress = m_args[0]
+                    filled = int(20 * progress / 100)
+                    bar = "=" * filled + " " * (20 - filled)
+                    print(f"\r[{bar}] {progress}%", end="", file=sys.stderr, flush=True)
 
-            elif m_type == REPLY and msg.get('result'):
+            elif m_type == EVENT and msg.get("event") == "loader/plugin_download_finish":
+                print(f"\r[{'=' * 20}] 100%", file=sys.stderr)
+                log(f"Installation successful: {msg.get('args')}")
+                installation_finished = True
+                success = True
+                # if already confirmed, we expect a REPLY after this event, 
+                # so we wait for it to confirm success
+                if not confirmed:
+                    break
+
+            elif m_type == REPLY and msg.get('result') is not None:
+                print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
                 log(f"Server reply: {msg.get('result')}")
+                if installation_finished:
+                    break
 
             elif m_type == ERROR:
+                print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
                 log(f"Server error: {msg.get('error')}")
 
     except Exception as e:
@@ -275,20 +297,20 @@ async def configure_store_url(store_url: str) -> None:
 
         log(f"Setting custom store URL: {store_url}")
         await client.send(CALL, "utilities/settings/set", ["store_url", store_url])
-        
+
         # Wait for reply
         msg = await client.recv()
         if msg is None:
             raise RuntimeError("Connection closed by server")
-        
+
         m_type = msg.get("type")
-        
+
         if m_type == REPLY:
             log(f"Store URL configured successfully: {msg.get('result')}")
         elif m_type == ERROR:
             log(f"Server error: {msg.get('error')}")
             raise RuntimeError(f"Failed to set store URL: {msg.get('error')}")
-        
+
     except Exception as e:
         log(f"Error: {e}")
         raise
@@ -306,14 +328,14 @@ async def get_store_url() -> str:
 
         log("Getting configured store URL...")
         await client.send(CALL, "utilities/settings/get", ["store_url", DEFAULT_STORE_URL])
-        
+
         # Wait for reply
         msg = await client.recv()
         if msg is None:
             raise RuntimeError("Connection closed by server")
-        
+
         m_type = msg.get("type")
-        
+
         if m_type == REPLY:
             store_url = msg.get('result')
             log(f"Current store URL: {store_url}")
@@ -321,9 +343,9 @@ async def get_store_url() -> str:
         elif m_type == ERROR:
             log(f"Server error: {msg.get('error')}")
             raise RuntimeError(f"Failed to get store URL: {msg.get('error')}")
-        
+
         raise RuntimeError("Unexpected response type")
-        
+
     except Exception as e:
         log(f"Error: {e}")
         raise
@@ -337,7 +359,7 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
-    
+
     # Install subcommand
     install_parser = subparsers.add_parser(
         "install",
@@ -354,7 +376,7 @@ if __name__ == "__main__":
         default=42,
         help="Plugin ID to install (default: 42)"
     )
-    
+
     # Configure store subcommand
     config_parser = subparsers.add_parser(
         "configure-store",
@@ -364,15 +386,15 @@ if __name__ == "__main__":
         "url",
         help="Custom store URL to configure"
     )
-    
+
     # Get store subcommand
     subparsers.add_parser(
         "get-store",
         help="Get the configured custom store URL"
     )
-    
+
     args = parser.parse_args()
-    
+
     # Execute based on subcommand
     if args.command == "install":
         asyncio.run(run_installer(
