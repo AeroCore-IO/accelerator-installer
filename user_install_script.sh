@@ -69,13 +69,13 @@ if ! (cd /tmp && sha256sum -c decky_client.py.sha256); then
   exit 1
 fi
 
+# Configure the custom store URL first to ensure install requests go to the correct store
+python3 "${decky_client}" configure-store "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins"
+
 # Install the plugin
 python3 "${decky_client}" install \
   --store-url "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins" \
   --target-id "${DECKY_PLUGIN_TARGET_ID}"
-
-# Configure the custom store URL for future use
-python3 "${decky_client}" configure-store "https://${DECKY_PLUGIN_MIRROR_HOST}/plugins"
 
 # Clean up
 rm -f "${decky_client}" "${decky_client_checksum}"
