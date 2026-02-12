@@ -51,13 +51,13 @@ decky_client="/tmp/decky_client.py"
 decky_client_checksum="/tmp/decky_client.py.sha256"
 
 # Download the client script
-if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_client.py" -o "${decky_client}"; then
+if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/accelerator-installer/releases/latest/download/decky_client.py" -o "${decky_client}"; then
   echo "Failed to download Decky Loader client script." >&2
   exit 1
 fi
 
 # Download the checksum file
-if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/decky-installer/releases/latest/download/decky_client.py.sha256" -o "${decky_client_checksum}"; then
+if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/AeroCore-IO/accelerator-installer/releases/latest/download/decky_client.py.sha256" -o "${decky_client_checksum}"; then
   echo "Failed to download checksum file for Decky Loader client." >&2
   exit 1
 fi
