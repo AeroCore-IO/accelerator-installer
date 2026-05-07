@@ -17,6 +17,10 @@ EVENT = 3
 # Default store URL
 DEFAULT_STORE_URL = "https://plugins.deckbrew.xyz/plugins"
 
+# Timeouts (seconds) for the install loop
+IDLE_TIMEOUT = 60        # max gap between any two messages from server
+OVERALL_TIMEOUT = 300    # hard upper bound for the whole install
+
 # Store type mapping
 STORE_TYPE_NAMES = {
     0: "default",
@@ -48,7 +52,6 @@ class DeckyClient:
         # Using a context manager for the request
         with urllib.request.urlopen(url, timeout=5) as response:
             return response.read().decode().strip()
-
 
     async def connect(self, token: str) -> None:
         """Connect and perform WebSocket handshake."""
@@ -229,8 +232,26 @@ async def run_installer(target_id: int, store_url: str) -> None:
         await client.send(CALL, "utilities/install_plugin",
                           [artifact_url, plugin_name, version_name, hash_, 0])
 
+        loop = asyncio.get_event_loop()
+        deadline = loop.time() + OVERALL_TIMEOUT
+
         while True:
-            msg = await client.recv()
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
+                raise TimeoutError(
+                    f"Installation exceeded overall timeout of {OVERALL_TIMEOUT}s"
+                )
+
+            try:
+                msg = await asyncio.wait_for(client.recv(),
+                                             timeout=min(IDLE_TIMEOUT, remaining))
+            except asyncio.TimeoutError:
+                print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
+                raise TimeoutError(
+                    f"No message from server for {IDLE_TIMEOUT}s; install appears stuck"
+                ) from None
+
             if msg is None:
                 print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
                 log("Connection closed by server.")
@@ -267,12 +288,9 @@ async def run_installer(target_id: int, store_url: str) -> None:
                 log(f"Installation successful: {msg.get('args')}")
                 installation_finished = True
                 success = True
-                # if already confirmed, we expect a REPLY after this event, 
-                # so we wait for it to confirm success
-                if not confirmed:
-                    break
+                break
 
-            elif m_type == REPLY and msg.get('result') is not None:
+            elif m_type == REPLY and msg.get("result") is not None:
                 print("\r" + " " * 30 + "\r", end="", file=sys.stderr, flush=True)
                 log(f"Server reply: {msg.get('result')}")
                 if installation_finished:
@@ -303,20 +321,21 @@ async def configure_store_url(store_url: str) -> None:
         await client.connect(token)
 
         # First, set the store type to 2 (custom)
-        log(f"Setting store type to custom (2)...")
+        log("Setting store type to custom (2)...")
         await client.send(CALL, "utilities/settings/set", ["store", 2])
         msg = await client.recv()
         if msg is None:
             raise RuntimeError("Connection closed by server")
-        
+
         if msg.get("type") == ERROR:
             log(f"Server error setting store type: {msg.get('error')}")
             raise RuntimeError(f"Failed to set store type: {msg.get('error')}")
-        
-        log(f"Store type set to custom")
+
+        log("Store type set to custom")
 
         log(f"Setting custom store URL: {store_url}")
-        await client.send(CALL, "utilities/settings/set", ["store-url", store_url])
+        await client.send(CALL, "utilities/settings/set",
+                          ["store-url", store_url])
         msg = await client.recv()
         if msg is None:
             raise RuntimeError("Connection closed by server")
@@ -353,8 +372,9 @@ async def get_store_url() -> str:
             raise RuntimeError("Connection closed by server")
 
         if msg.get("type") == REPLY:
-            store_type = msg.get('result')
-            store_type_name = STORE_TYPE_NAMES.get(store_type, f"unknown ({store_type})")
+            store_type = msg.get("result")
+            store_type_name = STORE_TYPE_NAMES.get(store_type,
+                                                   f"unknown ({store_type})")
             log(f"Current store type: {store_type_name}")
         elif msg.get("type") == ERROR:
             log(f"Server error: {msg.get('error')}")
@@ -362,7 +382,8 @@ async def get_store_url() -> str:
 
         # Get store URL
         log("Getting configured store URL...")
-        await client.send(CALL, "utilities/settings/get", ["store-url", DEFAULT_STORE_URL])
+        await client.send(CALL, "utilities/settings/get",
+                          ["store-url", DEFAULT_STORE_URL])
 
         msg = await client.recv()
         if msg is None:
@@ -371,7 +392,7 @@ async def get_store_url() -> str:
         m_type = msg.get("type")
 
         if m_type == REPLY:
-            store_url = msg.get('result')
+            store_url = msg.get("result")
             log(f"Current store URL: {store_url}")
             return store_url
         elif m_type == ERROR:
@@ -392,7 +413,8 @@ if __name__ == "__main__":
         description="Decky Loader Client - Manage plugins and settings",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    subparsers = parser.add_subparsers(dest="command",
+                                       help="Available commands")
 
     # Install subcommand
     install_parser = subparsers.add_parser(
@@ -402,7 +424,7 @@ if __name__ == "__main__":
     install_parser.add_argument(
         "--store-url",
         default="http://127.0.0.1:1337/plugins",
-        help="Plugin store URL to fetch plugins from (default: http://127.0.0.1:1337/plugins)"
+        help="Plugin store URL to fetch plugins from"
     )
     install_parser.add_argument(
         "--target-id",
