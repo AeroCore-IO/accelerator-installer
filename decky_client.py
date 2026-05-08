@@ -188,11 +188,13 @@ class DeckyClient:
             frame.extend(masked_payload)
             self.writer.write(frame)
             await self.writer.drain()
-        except Exception:
+        except OSError:
             pass
-        finally:
+        try:
             self.writer.close()
             await self.writer.wait_closed()
+        except OSError:
+            pass
 
 
 async def run_installer(target_id: int, store_url: str) -> None:
