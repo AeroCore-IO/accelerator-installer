@@ -3,10 +3,11 @@ import asyncio
 import base64
 import json
 import os
+import re
 import struct
 import sys
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Decky Loader Message Types
 CALL = 0
@@ -28,10 +29,48 @@ STORE_TYPE_NAMES = {
     2: "custom"
 }
 
+SEMVER_RE = re.compile(
+    r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$"
+)
+
 
 def log(*args: Any) -> None:
     """Print formatted logs to stderr."""
     print("[DeckyInstaller]", *args, file=sys.stderr, flush=True)
+
+
+def _prerelease_sort_key(prerelease: Optional[str]) -> Tuple[Tuple[int, int, str], ...]:
+    if not prerelease:
+        return ()
+
+    parts = []
+    for part in prerelease.split("."):
+        if part.isdigit():
+            parts.append((0, int(part), ""))
+        else:
+            parts.append((1, 0, part))
+    return tuple(parts)
+
+
+def version_sort_key(version: Dict[str, Any]) -> Tuple[Any, ...]:
+    """Sort store versions by semantic version, falling back to creation time."""
+    name = str(version.get("name") or "")
+    match = SEMVER_RE.match(name)
+    if match:
+        major, minor, patch, prerelease = match.groups()
+        is_stable = 1 if prerelease is None else 0
+        return (
+            1,
+            int(major),
+            int(minor or 0),
+            int(patch or 0),
+            is_stable,
+            _prerelease_sort_key(prerelease),
+            str(version.get("created") or ""),
+            name,
+        )
+
+    return (0, str(version.get("created") or ""), name)
 
 
 class DeckyClient:
@@ -221,7 +260,7 @@ async def run_installer(target_id: int, store_url: str) -> None:
         if not versions:
             raise RuntimeError("store entry missing versions")
 
-        latest = sorted(versions, key=lambda v: (v.get("name") or ""))[-1]
+        latest = max(versions, key=version_sort_key)
         version_name = latest.get("name") or "dev"
         artifact_url = latest.get("artifact") or ""
         hash_ = latest.get("hash") or ""
