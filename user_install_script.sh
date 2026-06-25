@@ -6,44 +6,34 @@ DECKY_MIRROR_HOST="__DECKY_MIRROR_HOST__"
 DECKY_PLUGIN_MIRROR_HOST="__DECKY_PLUGIN_MIRROR_HOST__"
 DECKY_PLUGIN_TARGET_ID="__DECKY_PLUGIN_ID__"
 
-# Check if Decky Loader is already installed and running on SteamOS
-echo "Checking if Decky Loader is already installed and running..."
-if systemctl is-active --quiet plugin_loader.service 2>/dev/null; then
-  echo "Decky Loader (plugin_loader.service) is already running. Skipping Decky Loader installation."
-  SKIP_DECKY_INSTALL=true
-else
-  echo "Decky Loader is not running or not installed. Proceeding with installation."
-  SKIP_DECKY_INSTALL=false
-fi
-
 # Download the official installer script, rewrite domains to the mirror, then execute.
 # This keeps the original installer logic intact while swapping network endpoints.
+# Use the upstream main-branch script so release/prerelease selection stays current.
 tmp_script="/tmp/decky_user_install_script.sh"
 
-if [ "$SKIP_DECKY_INSTALL" != true ]; then
-  if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/SteamDeckHomebrew/decky-installer/releases/latest/download/user_install_script.sh" \
-    | sed -E \
-        -e "s#github\.com#${DECKY_MIRROR_HOST}#g" \
-        -e "s#api\.github\.com#api.${DECKY_MIRROR_HOST}#g" \
-        -e "s#raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/#${DECKY_MIRROR_HOST}/\1/\2/plain/#g" \
-    > "${tmp_script}"; then
-    echo "Failed to download or rewrite the official installer script." >&2
-    exit 1
-  fi
+if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/SteamDeckHomebrew/decky-installer/plain/main/gui/user_install_script.sh" \
+  | sed -E \
+      -e "s#github\.com#${DECKY_MIRROR_HOST}#g" \
+      -e "s#api\.github\.com#api.${DECKY_MIRROR_HOST}#g" \
+      -e "s#raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/#${DECKY_MIRROR_HOST}/\1/\2/plain/#g" \
+  > "${tmp_script}"; then
+  echo "Failed to download or rewrite the official installer script." >&2
+  exit 1
+fi
 
-  # The official installer may exit with a non-zero code even when it succeeds.
-  # Do not abort our script here; verify via systemd instead.
-  set +e
-  bash "${tmp_script}"
-  installer_status=$?
-  set -e
+# The official installer may exit with a non-zero code even when it succeeds.
+# Do not abort our script here; verify the post-install state instead.
+set +e
+bash "${tmp_script}"
+installer_status=$?
+set -e
 
-  if systemctl is-active --quiet plugin_loader.service 2>/dev/null; then
-    echo "Decky Loader install completed (installer exit code: ${installer_status})."
-  else
-    echo "Decky Loader install did not complete successfully (installer exit code: ${installer_status})." >&2
-    exit 1
-  fi
+if systemctl is-active --quiet plugin_loader.service 2>/dev/null; then
+  echo "Decky Loader is active after official installer run (exit code: ${installer_status})."
+else
+  echo "Decky Loader is not active after official installer run (exit code: ${installer_status})."
+  echo "Skipping AeroCore plugin setup."
+  exit 0
 fi
 
 # Download and verify Decky Loader client (mirror-hosted).
