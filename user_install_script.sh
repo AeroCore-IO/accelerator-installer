@@ -11,7 +11,7 @@ DECKY_PLUGIN_TARGET_ID="__DECKY_PLUGIN_ID__"
 # Use the upstream main-branch script so release/prerelease selection stays current.
 tmp_script="/tmp/decky_user_install_script.sh"
 
-if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/SteamDeckHomebrew/decky-installer/plain/main/gui/user_install_script.sh" \
+if ! curl -fsSL "https://${DECKY_MIRROR_HOST}/SteamDeckHomebrew/decky-installer/plain/gui/user_install_script.sh" \
   | sed -E \
       -e "s#github\.com#${DECKY_MIRROR_HOST}#g" \
       -e "s#api\.github\.com#api.${DECKY_MIRROR_HOST}#g" \
